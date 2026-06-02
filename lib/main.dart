@@ -13,29 +13,75 @@ class FashionMvpApp extends StatefulWidget {
 
 class _FashionMvpAppState extends State<FashionMvpApp> {
   final CartModel cart = CartModel();
+  bool isDarkMode = false;
 
   @override
   Widget build(BuildContext context) {
-    return CartScope(
-      cart: cart,
-      onChanged: () => setState(() {}),
-      child: MaterialApp(
-        debugShowCheckedModeBanner: false,
-        title: 'Lulu Fashion MVP',
-        theme: ThemeData(
-          colorScheme: ColorScheme.fromSeed(
-            seedColor: const Color(0xFF176B5B),
-            primary: const Color(0xFF176B5B),
-            secondary: const Color(0xFFE15A3D),
-            surface: const Color(0xFFFFFBF7),
-          ),
-          fontFamily: 'Arial',
-          scaffoldBackgroundColor: const Color(0xFFFFFBF7),
-          useMaterial3: true,
+    return ThemeScope(
+      isDarkMode: isDarkMode,
+      onToggleTheme: () => setState(() => isDarkMode = !isDarkMode),
+      child: CartScope(
+        cart: cart,
+        onChanged: () => setState(() {}),
+        child: MaterialApp(
+          debugShowCheckedModeBanner: false,
+          title: 'Lulu Fashion MVP',
+          themeMode: isDarkMode ? ThemeMode.dark : ThemeMode.light,
+          theme: appTheme(Brightness.light),
+          darkTheme: appTheme(Brightness.dark),
+          home: const SplashScreen(),
         ),
-        home: const SplashScreen(),
       ),
     );
+  }
+}
+
+ThemeData appTheme(Brightness brightness) {
+  final isDark = brightness == Brightness.dark;
+  final colorScheme = ColorScheme.fromSeed(
+    seedColor: const Color(0xFF176B5B),
+    brightness: brightness,
+    primary: const Color(0xFF176B5B),
+    secondary: const Color(0xFFE15A3D),
+    surface: isDark ? const Color(0xFF151216) : const Color(0xFFFFFBF7),
+  );
+
+  return ThemeData(
+    colorScheme: colorScheme,
+    fontFamily: 'Arial',
+    scaffoldBackgroundColor:
+        isDark ? const Color(0xFF151216) : const Color(0xFFFFFBF7),
+    appBarTheme: AppBarTheme(
+      backgroundColor:
+          isDark ? const Color(0xFF151216) : const Color(0xFFFFFBF7),
+      foregroundColor: isDark ? Colors.white : const Color(0xFF17121A),
+      elevation: 0,
+    ),
+    cardColor: isDark ? const Color(0xFF211B23) : Colors.white,
+    useMaterial3: true,
+  );
+}
+
+class ThemeScope extends InheritedWidget {
+  const ThemeScope({
+    super.key,
+    required this.isDarkMode,
+    required this.onToggleTheme,
+    required super.child,
+  });
+
+  final bool isDarkMode;
+  final VoidCallback onToggleTheme;
+
+  static ThemeScope of(BuildContext context) {
+    final scope = context.dependOnInheritedWidgetOfExactType<ThemeScope>();
+    assert(scope != null, 'ThemeScope was not found.');
+    return scope!;
+  }
+
+  @override
+  bool updateShouldNotify(ThemeScope oldWidget) {
+    return isDarkMode != oldWidget.isDarkMode;
   }
 }
 
@@ -430,6 +476,7 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   Widget build(BuildContext context) {
     final scope = CartScope.of(context);
+    final themeScope = ThemeScope.of(context);
 
     return Scaffold(
       appBar: AppBar(
@@ -474,6 +521,18 @@ class _HomeScreenState extends State<HomeScreen> {
                 tooltip: 'Search',
                 onPressed: () {},
                 icon: const Icon(Icons.search),
+              ),
+              const SizedBox(width: 8),
+              IconButton.filled(
+                tooltip: themeScope.isDarkMode
+                    ? 'Use light theme'
+                    : 'Use dark theme',
+                onPressed: themeScope.onToggleTheme,
+                icon: Icon(
+                  themeScope.isDarkMode
+                      ? Icons.light_mode_outlined
+                      : Icons.dark_mode_outlined,
+                ),
               ),
             ],
           ),
@@ -607,6 +666,8 @@ class ProductCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
     return InkWell(
       borderRadius: BorderRadius.circular(8),
       onTap: () => Navigator.of(context).push(
@@ -616,7 +677,7 @@ class ProductCard extends StatelessWidget {
       ),
       child: Container(
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: theme.cardColor,
           borderRadius: BorderRadius.circular(8),
           boxShadow: const [
             BoxShadow(
@@ -640,7 +701,7 @@ class ProductCard extends StatelessWidget {
                     padding:
                         const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                     decoration: BoxDecoration(
-                      color: const Color(0xFFFFEEF4),
+                      color: theme.colorScheme.secondary.withOpacity(0.12),
                       borderRadius: BorderRadius.circular(8),
                     ),
                     child: Text(
@@ -848,12 +909,14 @@ class CartItemRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
     return Container(
       padding: const EdgeInsets.all(10),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: theme.cardColor,
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: Colors.black12),
+        border: Border.all(color: theme.dividerColor.withOpacity(0.18)),
       ),
       child: Row(
         children: [
@@ -1024,12 +1087,14 @@ class OrderSummary extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: theme.cardColor,
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: Colors.black12),
+        border: Border.all(color: theme.dividerColor.withOpacity(0.18)),
       ),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -1232,13 +1297,15 @@ class ProfileRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
     return ListTile(
       contentPadding: EdgeInsets.zero,
       leading: Container(
         width: 48,
         height: 48,
         decoration: BoxDecoration(
-          color: const Color(0xFFFFEEF4),
+          color: theme.colorScheme.secondary.withOpacity(0.12),
           borderRadius: BorderRadius.circular(8),
         ),
         child: Icon(icon, color: const Color(0xFFE15A3D)),

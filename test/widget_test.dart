@@ -79,4 +79,17 @@ void main() {
     expect(find.text('Payment'), findsNothing);
     expect(find.text('Filters'), findsNothing);
   });
+
+  testWidgets('shop theme button toggles app theme', (tester) async {
+    await tester.pumpWidget(const FashionMvpApp());
+    await tester.pump(const Duration(seconds: 1));
+    await tester.pumpAndSettle();
+
+    expect(find.byTooltip('Use dark theme'), findsOneWidget);
+
+    await tester.tap(find.byTooltip('Use dark theme'));
+    await tester.pumpAndSettle();
+
+    expect(find.byTooltip('Use light theme'), findsOneWidget);
+  });
 }
