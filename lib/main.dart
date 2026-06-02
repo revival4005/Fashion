@@ -465,12 +465,26 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   String selectedCategory = 'All';
+  bool isSearching = false;
+  final searchController = TextEditingController();
 
   List<Product> get visibleProducts {
-    if (selectedCategory == 'All') return products;
-    return products
-        .where((product) => product.category == selectedCategory)
-        .toList();
+    final query = searchController.text.trim().toLowerCase();
+    return products.where((product) {
+      final matchesCategory =
+          selectedCategory == 'All' || product.category == selectedCategory;
+      final matchesSearch = query.isEmpty ||
+          product.name.toLowerCase().contains(query) ||
+          product.category.toLowerCase().contains(query);
+
+      return matchesCategory && matchesSearch;
+    }).toList();
+  }
+
+  @override
+  void dispose() {
+    searchController.dispose();
+    super.dispose();
   }
 
   @override
@@ -518,9 +532,16 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
               ),
               IconButton.filledTonal(
-                tooltip: 'Search',
-                onPressed: () {},
-                icon: const Icon(Icons.search),
+                tooltip: isSearching ? 'Close search' : 'Search',
+                onPressed: () {
+                  setState(() {
+                    isSearching = !isSearching;
+                    if (!isSearching) {
+                      searchController.clear();
+                    }
+                  });
+                },
+                icon: Icon(isSearching ? Icons.close : Icons.search),
               ),
               const SizedBox(width: 8),
               IconButton.filled(
@@ -536,6 +557,30 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
             ],
           ),
+          if (isSearching) ...[
+            const SizedBox(height: 14),
+            TextField(
+              controller: searchController,
+              autofocus: true,
+              decoration: InputDecoration(
+                hintText: 'Search dresses, bags, shoes...',
+                prefixIcon: const Icon(Icons.search),
+                suffixIcon: searchController.text.isEmpty
+                    ? null
+                    : IconButton(
+                        tooltip: 'Clear search',
+                        onPressed: () {
+                          setState(searchController.clear);
+                        },
+                        icon: const Icon(Icons.close),
+                      ),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(8),
+                ),
+              ),
+              onChanged: (_) => setState(() {}),
+            ),
+          ],
           const SizedBox(height: 20),
           const FeaturedLookCard(),
           const SizedBox(height: 20),
@@ -561,20 +606,27 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
           ),
           const SizedBox(height: 20),
-          GridView.builder(
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            itemCount: visibleProducts.length,
-            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-              crossAxisCount: 2,
-              childAspectRatio: 0.61,
-              crossAxisSpacing: 12,
-              mainAxisSpacing: 12,
+          if (visibleProducts.isEmpty)
+            const EmptyState(
+              icon: Icons.search_off,
+              title: 'No products found',
+              message: 'Try another search or choose a different category.',
+            )
+          else
+            GridView.builder(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              itemCount: visibleProducts.length,
+              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount: 2,
+                childAspectRatio: 0.61,
+                crossAxisSpacing: 12,
+                mainAxisSpacing: 12,
+              ),
+              itemBuilder: (context, index) {
+                return ProductCard(product: visibleProducts[index]);
+              },
             ),
-            itemBuilder: (context, index) {
-              return ProductCard(product: visibleProducts[index]);
-            },
-          ),
         ],
       ),
     );

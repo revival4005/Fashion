@@ -92,4 +92,22 @@ void main() {
 
     expect(find.byTooltip('Use light theme'), findsOneWidget);
   });
+
+  testWidgets('shop search filters products', (tester) async {
+    await tester.pumpWidget(const FashionMvpApp());
+    await tester.pump(const Duration(seconds: 1));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byTooltip('Search'));
+    await tester.pumpAndSettle();
+
+    await tester.enterText(find.byType(TextField), 'bag');
+    await tester.pumpAndSettle();
+    await tester.drag(find.byType(ListView).first, const Offset(0, -520));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Mini Shoulder Bag'), findsOneWidget);
+    expect(find.text('Canvas Tote Bag'), findsOneWidget);
+    expect(find.text('Wide Leg Trousers'), findsNothing);
+  });
 }
