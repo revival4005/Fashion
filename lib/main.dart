@@ -13,6 +13,7 @@ class FashionMvpApp extends StatefulWidget {
 
 class _FashionMvpAppState extends State<FashionMvpApp> {
   final CartModel cart = CartModel();
+  final OrderHistory orderHistory = OrderHistory();
   bool isDarkMode = false;
 
   @override
@@ -23,13 +24,17 @@ class _FashionMvpAppState extends State<FashionMvpApp> {
       child: CartScope(
         cart: cart,
         onChanged: () => setState(() {}),
-        child: MaterialApp(
-          debugShowCheckedModeBanner: false,
-          title: 'Lulu Fashion MVP',
-          themeMode: isDarkMode ? ThemeMode.dark : ThemeMode.light,
-          theme: appTheme(Brightness.light),
-          darkTheme: appTheme(Brightness.dark),
-          home: const SplashScreen(),
+        child: OrderScope(
+          orderHistory: orderHistory,
+          onChanged: () => setState(() {}),
+          child: MaterialApp(
+            debugShowCheckedModeBanner: false,
+            title: 'Lulu Fashion MVP',
+            themeMode: isDarkMode ? ThemeMode.dark : ThemeMode.light,
+            theme: appTheme(Brightness.light),
+            darkTheme: appTheme(Brightness.dark),
+            home: const SplashScreen(),
+          ),
         ),
       ),
     );
@@ -124,6 +129,9 @@ class Order {
     required this.phone,
     required this.address,
     required this.total,
+    required this.itemCount,
+    required this.status,
+    required this.createdAt,
   });
 
   final String number;
@@ -131,6 +139,9 @@ class Order {
   final String phone;
   final String address;
   final int total;
+  final int itemCount;
+  final String status;
+  final DateTime createdAt;
 }
 
 class CartModel {
@@ -172,6 +183,14 @@ class CartModel {
   }
 }
 
+class OrderHistory {
+  final List<Order> orders = [];
+
+  void add(Order order) {
+    orders.insert(0, order);
+  }
+}
+
 class CartScope extends InheritedWidget {
   const CartScope({
     super.key,
@@ -191,6 +210,27 @@ class CartScope extends InheritedWidget {
 
   @override
   bool updateShouldNotify(CartScope oldWidget) => true;
+}
+
+class OrderScope extends InheritedWidget {
+  const OrderScope({
+    super.key,
+    required this.orderHistory,
+    required this.onChanged,
+    required super.child,
+  });
+
+  final OrderHistory orderHistory;
+  final VoidCallback onChanged;
+
+  static OrderScope of(BuildContext context) {
+    final scope = context.dependOnInheritedWidgetOfExactType<OrderScope>();
+    assert(scope != null, 'OrderScope was not found.');
+    return scope!;
+  }
+
+  @override
+  bool updateShouldNotify(OrderScope oldWidget) => true;
 }
 
 const categories = ['All', 'Trousers', 'Bags', 'Shoes', 'Dresses'];
@@ -465,12 +505,26 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   String selectedCategory = 'All';
+  bool isSearching = false;
+  final searchController = TextEditingController();
 
   List<Product> get visibleProducts {
-    if (selectedCategory == 'All') return products;
-    return products
-        .where((product) => product.category == selectedCategory)
-        .toList();
+    final query = searchController.text.trim().toLowerCase();
+    return products.where((product) {
+      final matchesCategory =
+          selectedCategory == 'All' || product.category == selectedCategory;
+      final matchesSearch = query.isEmpty ||
+          product.name.toLowerCase().contains(query) ||
+          product.category.toLowerCase().contains(query);
+
+      return matchesCategory && matchesSearch;
+    }).toList();
+  }
+
+  @override
+  void dispose() {
+    searchController.dispose();
+    super.dispose();
   }
 
   @override
@@ -518,9 +572,16 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
               ),
               IconButton.filledTonal(
-                tooltip: 'Search',
-                onPressed: () {},
-                icon: const Icon(Icons.search),
+                tooltip: isSearching ? 'Close search' : 'Search',
+                onPressed: () {
+                  setState(() {
+                    isSearching = !isSearching;
+                    if (!isSearching) {
+                      searchController.clear();
+                    }
+                  });
+                },
+                icon: Icon(isSearching ? Icons.close : Icons.search),
               ),
               const SizedBox(width: 8),
               IconButton.filled(
@@ -536,6 +597,30 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
             ],
           ),
+          if (isSearching) ...[
+            const SizedBox(height: 14),
+            TextField(
+              controller: searchController,
+              autofocus: true,
+              decoration: InputDecoration(
+                hintText: 'Search dresses, bags, shoes...',
+                prefixIcon: const Icon(Icons.search),
+                suffixIcon: searchController.text.isEmpty
+                    ? null
+                    : IconButton(
+                        tooltip: 'Clear search',
+                        onPressed: () {
+                          setState(searchController.clear);
+                        },
+                        icon: const Icon(Icons.close),
+                      ),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(8),
+                ),
+              ),
+              onChanged: (_) => setState(() {}),
+            ),
+          ],
           const SizedBox(height: 20),
           const FeaturedLookCard(),
           const SizedBox(height: 20),
@@ -561,20 +646,27 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
           ),
           const SizedBox(height: 20),
-          GridView.builder(
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            itemCount: visibleProducts.length,
-            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-              crossAxisCount: 2,
-              childAspectRatio: 0.61,
-              crossAxisSpacing: 12,
-              mainAxisSpacing: 12,
+          if (visibleProducts.isEmpty)
+            const EmptyState(
+              icon: Icons.search_off,
+              title: 'No products found',
+              message: 'Try another search or choose a different category.',
+            )
+          else
+            GridView.builder(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              itemCount: visibleProducts.length,
+              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount: 2,
+                childAspectRatio: 0.61,
+                crossAxisSpacing: 12,
+                mainAxisSpacing: 12,
+              ),
+              itemBuilder: (context, index) {
+                return ProductCard(product: visibleProducts[index]);
+              },
             ),
-            itemBuilder: (context, index) {
-              return ProductCard(product: visibleProducts[index]);
-            },
-          ),
         ],
       ),
     );
@@ -989,6 +1081,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
   @override
   Widget build(BuildContext context) {
     final scope = CartScope.of(context);
+    final orderScope = OrderScope.of(context);
     final cart = scope.cart;
 
     return Scaffold(
@@ -1051,9 +1144,14 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                   phone: phoneController.text.trim(),
                   address: addressController.text.trim(),
                   total: cart.totalPrice,
+                  itemCount: cart.totalItems,
+                  status: 'Pending',
+                  createdAt: DateTime.now(),
                 );
 
+                orderScope.orderHistory.add(order);
                 cart.clear();
+                orderScope.onChanged();
                 scope.onChanged();
 
                 Navigator.of(context).pushAndRemoveUntil(
@@ -1170,13 +1268,94 @@ class OrdersScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final orders = OrderScope.of(context).orderHistory.orders;
+
     return Scaffold(
       appBar: AppBar(title: const Text('Orders')),
-      body: const EmptyState(
-        icon: Icons.receipt_long_outlined,
-        title: 'No orders yet',
-        message:
-            'Placed orders will show here with Pending, Shipped, and Delivered status.',
+      body: orders.isEmpty
+          ? const EmptyState(
+              icon: Icons.receipt_long_outlined,
+              title: 'No orders yet',
+              message:
+                  'Placed orders will show here with Pending, Shipped, and Delivered status.',
+            )
+          : ListView.separated(
+              padding: const EdgeInsets.all(16),
+              itemCount: orders.length,
+              separatorBuilder: (_, __) => const SizedBox(height: 12),
+              itemBuilder: (context, index) {
+                return OrderRow(order: orders[index]);
+              },
+            ),
+    );
+  }
+}
+
+class OrderRow extends StatelessWidget {
+  const OrderRow({super.key, required this.order});
+
+  final Order order;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: theme.cardColor,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: theme.dividerColor.withOpacity(0.18)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  order.number,
+                  style: const TextStyle(fontWeight: FontWeight.w900),
+                ),
+              ),
+              StatusPill(status: order.status),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Text('${order.itemCount} item(s) - ${money(order.total)}'),
+          const SizedBox(height: 6),
+          Text(
+            'Delivery to ${order.address}',
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(color: theme.colorScheme.onSurfaceVariant),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class StatusPill extends StatelessWidget {
+  const StatusPill({super.key, required this.status});
+
+  final String status;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+      decoration: BoxDecoration(
+        color: const Color(0xFF176B5B).withOpacity(0.14),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Text(
+        status,
+        style: const TextStyle(
+          color: Color(0xFF176B5B),
+          fontSize: 12,
+          fontWeight: FontWeight.w900,
+        ),
       ),
     );
   }

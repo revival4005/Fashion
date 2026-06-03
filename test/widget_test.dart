@@ -63,6 +63,16 @@ void main() {
 
     expect(find.text('Order confirmed'), findsOneWidget);
     expect(find.text('Total: TZS 55,000'), findsOneWidget);
+
+    await tester.tap(find.text('Back to Home'));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Orders'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Pending'), findsOneWidget);
+    expect(find.text('1 item(s) - TZS 55,000'), findsOneWidget);
+    expect(find.text('Delivery to Dar es Salaam'), findsOneWidget);
   });
 
   testWidgets('profile tab only shows profile details', (tester) async {
@@ -91,5 +101,23 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.byTooltip('Use light theme'), findsOneWidget);
+  });
+
+  testWidgets('shop search filters products', (tester) async {
+    await tester.pumpWidget(const FashionMvpApp());
+    await tester.pump(const Duration(seconds: 1));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byTooltip('Search'));
+    await tester.pumpAndSettle();
+
+    await tester.enterText(find.byType(TextField), 'bag');
+    await tester.pumpAndSettle();
+    await tester.drag(find.byType(ListView).first, const Offset(0, -520));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Mini Shoulder Bag'), findsOneWidget);
+    expect(find.text('Canvas Tote Bag'), findsOneWidget);
+    expect(find.text('Wide Leg Trousers'), findsNothing);
   });
 }
